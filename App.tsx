@@ -140,10 +140,12 @@ const App = () => {
         phone: backendParams.phone,
         email: backendParams.email,
         requestId: `REQ_${Date.now()}`,
-        pluginTypes: ['AXIS'],
+        pluginTypes: ['BHIM'],
         isProduction: false,
+        issuingBank: ['AXIS'],
       };
 
+      console.log('config', config);
       console.log('Initializing Bolt SDK...');
       PayUUPIBoltUiSdk.initSDK(config);
 
@@ -157,6 +159,7 @@ const App = () => {
         udf1: '',
       };
 
+      console.log('paymentParams', paymentParams);
       console.log('Starting Register And Pay...');
       PayUUPIBoltUiSdk.payURegisterAndPay(paymentParams);
     } catch (error: any) {
@@ -179,7 +182,7 @@ const App = () => {
           {loading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.btnText}>PAY NOW !</Text>
+            <Text style={styles.btnText}>PAY NOW ₹1.00</Text>
           )}
         </TouchableOpacity>
       </View>

@@ -110,6 +110,7 @@ android {
 dependencies {
     implementation("com.facebook.react:react-android")
     implementation files('libs/cl_1.8_android_uat.aar')
+    implementation("in.payu:payu-upi-bolt-core-sdk:0.0.6-alpha6")
 
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
