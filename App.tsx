@@ -42,34 +42,36 @@ const App = () => {
 
           // Send result back to SDK: { [hashName]: "generated_hash" }
           PayUUpiBoltUiRn.hashGenerated({
-            [data.hashName]: response.data[data.hashName]
+            [data.hashName]: response.data[data.hashName],
           });
-
         } catch (error) {
           console.error('[BoltUI] Hash Error:', error);
           // Do not show Alert here as it might interrupt the native UI flow
         }
-      }
+      },
     );
 
     // 2. Success Listener
     const successSubscription = payUBoltEventEmitter.addListener(
       'onPayUSuccess',
-      (response) => {
+      response => {
         console.log('[BoltUI] Success:', response);
-        Alert.alert('Success', `Txn ID: ${response.txnid}\nStatus: ${response.status}`);
+        Alert.alert(
+          'Success',
+          `Txn ID: ${response.txnid}\nStatus: ${response.status}`,
+        );
         setLoading(false);
-      }
+      },
     );
 
     // 3. Failure Listener
     const failureSubscription = payUBoltEventEmitter.addListener(
       'onPayUFailure',
-      (response) => {
+      response => {
         console.log('[BoltUI] Failure:', response);
         Alert.alert('Failure', response.message || 'Payment Failed');
         setLoading(false);
-      }
+      },
     );
 
     return () => {
@@ -86,7 +88,7 @@ const App = () => {
       console.log('Initiating payment on backend...');
 
       const initiatePayload = {
-        amount: 1.00,
+        amount: 1.0,
         productInfo: 'Bolt Test',
         firstname: 'Test User',
         email: 'test@example.com',
@@ -99,7 +101,7 @@ const App = () => {
 
       const response = await axios.post(
         `${API_BASE_URL}/payment/initiate`,
-        initiatePayload
+        initiatePayload,
       );
 
       const { data } = response.data; // Wraps your PaymentAdapter output
@@ -122,10 +124,13 @@ const App = () => {
       };
 
       console.log('Opening Bolt UI...');
+      console.log('Payment params', paymentParams);
       PayUUpiBoltUiRn.startPayment(paymentParams);
-
     } catch (error: any) {
-      console.error('Payment Init Error:', error?.response?.data || error.message);
+      console.error(
+        'Payment Init Error:',
+        error?.response?.data || error.message,
+      );
       Alert.alert('Error', 'Failed to initiate payment');
       setLoading(false);
     }

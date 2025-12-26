@@ -115,9 +115,9 @@ dependencies {
 
     // 2. PayU Remote SDKs (The code snippet PayU gave you)
     // Note: We also add the 'ui-sdk' because the wrapper usually depends on it.
-    implementation 'in.payu:payu-upi-bolt-ui-sdk:0.0.1' 
-    implementation 'in.payu:payu-upi-bolt-axis-wrapper-sdk-android:0.0.1' 
-    
+    implementation 'in.payu:payu-upi-bolt-ui-sdk:0.0.1'
+    implementation 'in.payu:payu-upi-bolt-axis-wrapper-sdk:0.0.1'
+
     // 3. Required Android Support Libraries
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
