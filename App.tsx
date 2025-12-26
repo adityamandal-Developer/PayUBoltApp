@@ -8,50 +8,43 @@ import {
   Alert,
   ActivityIndicator,
   NativeEventEmitter,
-  NativeModules,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import axios from 'axios';
 
-// 1. Get the Native Module
-const { PayUUpiBoltUiRn } = NativeModules;
-const payUBoltEventEmitter = new NativeEventEmitter(PayUUpiBoltUiRn);
+import PayUUPIBoltUiSdk from 'payu-upi-bolt-ui-rn';
 
-// Emulator localhost (Use 10.0.2.2 for Android Emulator)
-const API_BASE_URL = 'http://10.0.2.2:5004/api/v1';
+const payUBoltEventEmitter = new NativeEventEmitter(PayUUPIBoltUiSdk);
+
+const API_BASE_URL =
+  'https://calligraphical-unlanguidly-joanna.ngrok-free.dev/api/v1';
 
 const App = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // --- EVENT LISTENERS ---
-
-    // 1. Hash Generation Listener
-    // The SDK calls this when it needs a checksum to proceed securely.
     const hashSubscription = payUBoltEventEmitter.addListener(
       'generateHash',
       async (data: { hashName: string; hashString: string }) => {
         console.log('[BoltUI] Hash Requested:', data);
         try {
-          // Call your backend to generate the hash using your Salt
           const response = await axios.post(`${API_BASE_URL}/payment/hash`, {
             hashName: data.hashName,
             hashString: data.hashString,
           });
 
-          console.log('[BoltUI] Hash Generated:', response.data);
-
-          // Send result back to SDK: { [hashName]: "generated_hash" }
-          PayUUpiBoltUiRn.hashGenerated({
+          const result = {
+            hashName: data.hashName,
             [data.hashName]: response.data[data.hashName],
-          });
+          };
+          PayUUPIBoltUiSdk.hashGenerated(result);
         } catch (error) {
           console.error('[BoltUI] Hash Error:', error);
-          // Do not show Alert here as it might interrupt the native UI flow
         }
       },
     );
 
-    // 2. Success Listener
     const successSubscription = payUBoltEventEmitter.addListener(
       'onPayUSuccess',
       response => {
@@ -64,12 +57,11 @@ const App = () => {
       },
     );
 
-    // 3. Failure Listener
     const failureSubscription = payUBoltEventEmitter.addListener(
       'onPayUFailure',
       response => {
         console.log('[BoltUI] Failure:', response);
-        Alert.alert('Failure', response.message || 'Payment Failed');
+        Alert.alert('Failure', response.message || 'Transaction Failed');
         setLoading(false);
       },
     );
@@ -81,18 +73,52 @@ const App = () => {
     };
   }, []);
 
+  const requestPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+          PermissionsAndroid.PERMISSIONS.SEND_SMS,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
+
+        if (
+          granted['android.permission.READ_PHONE_STATE'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          granted['android.permission.SEND_SMS'] ===
+            PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          console.log('You can use the SDK');
+          return true;
+        } else {
+          console.log('Permissions denied');
+          Alert.alert(
+            'Permission Error',
+            'SMS and Phone permissions are required for UPI Binding.',
+          );
+          return false;
+        }
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handlePayNow = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
     setLoading(true);
     try {
-      // Step A: Initiate Payment on Backend
       console.log('Initiating payment on backend...');
-
       const initiatePayload = {
         amount: 1.0,
         productInfo: 'Bolt Test',
         firstname: 'Test User',
         email: 'test@example.com',
-        phone: '9876543210', // Use a valid mobile number for UPI binding to work
+        phone: '9876543210',
         appReferenceId: `REF_${Date.now()}`,
         gateway: 'PAYU',
         surl: 'https://cbjs.payu.in/sdk/success',
@@ -103,34 +129,38 @@ const App = () => {
         `${API_BASE_URL}/payment/initiate`,
         initiatePayload,
       );
+      const { data } = response.data;
+      const backendParams = data.params;
 
-      const { data } = response.data; // Wraps your PaymentAdapter output
-      console.log('Backend Init Success:', data);
+      console.log('Backend Init Success:', backendParams);
 
-      // Step B: Launch Bolt UI
-      // Map your backend response to the Bolt SDK params
-      const paymentParams = {
-        key: data.params.key,
-        txnId: data.params.txnid,
-        amount: String(data.params.amount),
-        productInfo: data.params.productinfo,
-        firstName: data.params.firstname,
-        email: data.params.email,
-        phone: data.params.phone,
-        surl: data.params.surl,
-        furl: data.params.furl,
-        hash: data.params.hash, // Initial payment hash
-        isDebug: true, // Shows detailed logs in Android Logcat
+      const config = {
+        merchantName: 'PayU',
+        merchantKey: 'smsplus',
+        phone: backendParams.phone,
+        email: backendParams.email,
+        requestId: `REQ_${Date.now()}`,
+        pluginTypes: ['AXIS'],
+        isProduction: false,
       };
 
-      console.log('Opening Bolt UI...');
-      console.log('Payment params', paymentParams);
-      PayUUpiBoltUiRn.startPayment(paymentParams);
+      console.log('Initializing Bolt SDK...');
+      PayUUPIBoltUiSdk.initSDK(config);
+
+      const paymentParams = {
+        txnId: backendParams.txnid,
+        amount: String(backendParams.amount),
+        firstName: backendParams.firstname,
+        productInfo: backendParams.productinfo,
+        surl: backendParams.surl,
+        furl: backendParams.furl,
+        udf1: '',
+      };
+
+      console.log('Starting Register And Pay...');
+      PayUUPIBoltUiSdk.payURegisterAndPay(paymentParams);
     } catch (error: any) {
-      console.error(
-        'Payment Init Error:',
-        error?.response?.data || error.message,
-      );
+      console.error('Payment Error:', error?.response?.data || error.message);
       Alert.alert('Error', 'Failed to initiate payment');
       setLoading(false);
     }
@@ -141,7 +171,6 @@ const App = () => {
       <View style={styles.content}>
         <Text style={styles.header}>PayU Bolt UI</Text>
         <Text style={styles.subHeader}>Test Mode</Text>
-
         <TouchableOpacity
           style={styles.btn}
           onPress={handlePayNow}
@@ -150,7 +179,7 @@ const App = () => {
           {loading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.btnText}>PAY NOW ₹1.00</Text>
+            <Text style={styles.btnText}>PAY NOW !</Text>
           )}
         </TouchableOpacity>
       </View>

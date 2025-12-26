@@ -1,17 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="android.permission.READ_PHONE_STATE" />
-<uses-permission android:name="android.permission.SEND_SMS" /> ```
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
 
----
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-### **Phase 2: React Native Implementation**
-
-Install the necessary packages:
-```bash
-npm install payu-upi-bolt-ui-rn axios
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
