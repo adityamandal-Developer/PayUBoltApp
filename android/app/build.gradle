@@ -79,23 +79,23 @@ android {
 
     namespace "com.payuboltapp"
     defaultConfig {
-        applicationId "com.payuboltapp"
+        applicationId "in.org.npci.upi.sdk.payu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
     }
     signingConfigs {
-        debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+    customDebug {
+        storeFile file("keystores/my-release.keystore")
+        storePassword "mypassword"
+        keyAlias "myalias"
+        keyPassword "mypassword"
         }
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.customDebug
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
@@ -109,9 +109,9 @@ android {
 
 dependencies {
     implementation("com.facebook.react:react-android")
-    implementation files('libs/cl_1.8_android_uat.aar')
+   // implementation files('libs/cl_1.8_android_uat.aar')
+    api(files("$projectDir/libs/cl_1.8_android_uat.aar"))
     implementation("in.payu:payu-upi-bolt-core-sdk:0.0.6-alpha6")
-
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'

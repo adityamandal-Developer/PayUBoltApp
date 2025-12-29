@@ -137,13 +137,27 @@ const App = () => {
       const config = {
         merchantName: 'PayU',
         merchantKey: 'smsplus',
-        phone: backendParams.phone,
+        phone: `91${backendParams.phone}`,
         email: backendParams.email,
-        requestId: `REQ_${Date.now()}`,
+        requestId: `OneTicket_${Date.now()}`,
         pluginTypes: ['BHIM'],
         isProduction: false,
-        issuingBank: ['AXIS'],
+        issuingBanks: ['AXIS'],
+        // refId: "<refId>",
+        clientId: ['OneTicket'],
       };
+
+      // {
+      //               merchantName: "<merchantName>", // String
+      //               merchantKey: "<merchantKey>" // String,
+      //               phone: "<phone>", // String
+      //               email: "<email>", // String
+      //               refId: "<refId>", // String
+      //               pluginTypes: ["<pluginType>"], // Array<String>
+      //               clientId: ["clientId"], // String
+      //               issuingBanks: ["<issuingBanks>"], // Array<String>
+      //               excludedBanksIINs: ["<excludedBanksIIN>"], // Array<String>
+      //               isProduction: <isProduction> // String
 
       console.log('config', config);
       console.log('Initializing Bolt SDK...');
@@ -156,11 +170,17 @@ const App = () => {
         productInfo: backendParams.productinfo,
         surl: backendParams.surl,
         furl: backendParams.furl,
+        ios_surl: backendParams.surl,
+        ios_furl: backendParams.furl,
         udf1: '',
+        udf2: '',
+        udf3: '',
+        udf4: '',
+        udf5: '',
       };
 
       console.log('paymentParams', paymentParams);
-      console.log('Starting Register And Pay...');
+      console.log('Register And Pay');
       PayUUPIBoltUiSdk.payURegisterAndPay(paymentParams);
     } catch (error: any) {
       console.error('Payment Error:', error?.response?.data || error.message);
