@@ -10,21 +10,52 @@ import {
   NativeEventEmitter,
   PermissionsAndroid,
   Platform,
+  ScrollView,
 } from 'react-native';
 import axios from 'axios';
-
 import PayUUPIBoltUiSdk from 'payu-upi-bolt-ui-rn';
 
 const payUBoltEventEmitter = new NativeEventEmitter(PayUUPIBoltUiSdk);
 
-const API_BASE_URL =
-  'https://calligraphical-unlanguidly-joanna.ngrok-free.dev/api/v1';
+const API_BASE_URL = 'https://your-backend-api.com/api';
 
 const App = () => {
   const [loading, setLoading] = useState(false);
+  const [boltAvailable, setBoltAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const hashSubscription = payUBoltEventEmitter.addListener(
+    //Success
+    const onPayUSuccessListener = payUBoltEventEmitter.addListener(
+      'onPayUSuccess',
+      response => {
+        console.log('[BoltUI] Success:', response);
+        setLoading(false);
+        Alert.alert('Payment Success', JSON.stringify(response));
+      },
+    );
+
+    //Failure
+    const onPayUFailureListener = payUBoltEventEmitter.addListener(
+      'onPayUFailure',
+      response => {
+        console.log('[BoltUI] Failure:', response);
+        setLoading(false);
+        Alert.alert('Payment Failure', JSON.stringify(response));
+      },
+    );
+
+    //Cancel
+    const onPayUCancelListener = payUBoltEventEmitter.addListener(
+      'onPayUCancel',
+      response => {
+        console.log('[BoltUI] Cancelled:', response);
+        setLoading(false);
+        Alert.alert('Payment Cancelled', 'User cancelled the transaction');
+      },
+    );
+
+    // Hash Generation
+    const payUGenerateHashListener = payUBoltEventEmitter.addListener(
       'generateHash',
       async (data: { hashName: string; hashString: string }) => {
         console.log('[BoltUI] Hash Requested:', data);
@@ -38,38 +69,20 @@ const App = () => {
             hashName: data.hashName,
             [data.hashName]: response.data[data.hashName],
           };
+
+          console.log('[BoltUI] Sending Hash to SDK:', result);
           PayUUPIBoltUiSdk.hashGenerated(result);
         } catch (error) {
-          console.error('[BoltUI] Hash Error:', error);
+          console.error('[BoltUI] Hash Generation Error:', error);
         }
       },
     );
 
-    const successSubscription = payUBoltEventEmitter.addListener(
-      'onPayUSuccess',
-      response => {
-        console.log('[BoltUI] Success:', response);
-        Alert.alert(
-          'Success',
-          `Txn ID: ${response.txnid}\nStatus: ${response.status}`,
-        );
-        setLoading(false);
-      },
-    );
-
-    const failureSubscription = payUBoltEventEmitter.addListener(
-      'onPayUFailure',
-      response => {
-        console.log('[BoltUI] Failure:', response);
-        Alert.alert('Failure', response.message || 'Transaction Failed');
-        setLoading(false);
-      },
-    );
-
     return () => {
-      hashSubscription.remove();
-      successSubscription.remove();
-      failureSubscription.remove();
+      onPayUSuccessListener.remove();
+      onPayUFailureListener.remove();
+      onPayUCancelListener.remove();
+      payUGenerateHashListener.remove();
     };
   }, []);
 
@@ -80,21 +93,22 @@ const App = () => {
           PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
           PermissionsAndroid.PERMISSIONS.SEND_SMS,
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.READ_PHONE_NUMBERS,
         ]);
 
-        if (
+        const phoneState =
           granted['android.permission.READ_PHONE_STATE'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
+          PermissionsAndroid.RESULTS.GRANTED;
+        const sms =
           granted['android.permission.SEND_SMS'] ===
-            PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          console.log('You can use the SDK');
+          PermissionsAndroid.RESULTS.GRANTED;
+
+        if (phoneState && sms) {
           return true;
         } else {
-          console.log('Permissions denied');
           Alert.alert(
-            'Permission Error',
-            'SMS and Phone permissions are required for UPI Binding.',
+            'Permissions Required',
+            'SMS and Phone permissions are mandatory for UPI Bolt.',
           );
           return false;
         }
@@ -106,124 +120,147 @@ const App = () => {
     return true;
   };
 
-  const handlePayNow = async () => {
+  const handleInit = async () => {
+    const config = {
+      merchantName: 'PayU',
+      merchantKey: 'smsplus',
+      phone: `91${backendParams.phone}`,
+      email: backendParams.email,
+      requestId: `OneTicket_${Date.now()}`,
+      pluginTypes: ['BHIM'],
+      isProduction: false,
+      excludedBanksIINs: [],
+      refId: 'oneticket',
+      clientId: ['OneTicket'],
+    };
+
+    console.log('Initializing SDK with:', config);
+    try {
+      PayUUPIBoltUiSdk.initSDK(config);
+      console.log('SDK Initialized');
+      checkAvailability();
+    } catch (e) {
+      console.error('Init Error:', e);
+    }
+  };
+
+  const checkAvailability = () => {
+    PayUUPIBoltUiSdk.isUPIBoltSDKAvailable((response: any) => {
+      console.log('Bolt Availability:', response);
+      if (
+        response.isSDKAvailable === 'true' ||
+        response.isSDKAvailable === true
+      ) {
+        setBoltAvailable(true);
+      } else {
+        setBoltAvailable(false);
+        Alert.alert(
+          'Not Available',
+          'UPI Bolt SDK is not available on this device',
+        );
+      }
+    });
+  };
+
+  const handleRegisterAndPay = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
-    setLoading(true);
-    try {
-      console.log('Initiating payment on backend...');
-      const initiatePayload = {
-        amount: 1.0,
-        productInfo: 'Bolt Test',
-        firstname: 'Test User',
-        email: 'test@example.com',
-        phone: '9876543210',
-        appReferenceId: `REF_${Date.now()}`,
-        gateway: 'PAYU',
-        surl: 'https://cbjs.payu.in/sdk/success',
-        furl: 'https://cbjs.payu.in/sdk/failure',
-      };
-
-      const response = await axios.post(
-        `${API_BASE_URL}/payment/initiate`,
-        initiatePayload,
-      );
-      const { data } = response.data;
-      const backendParams = data.params;
-
-      console.log('Backend Init Success:', backendParams);
-
-      const config = {
-        merchantName: 'PayU',
-        merchantKey: 'smsplus',
-        phone: `91${backendParams.phone}`,
-        email: backendParams.email,
-        requestId: `OneTicket_${Date.now()}`,
-        pluginTypes: ['BHIM'],
-        isProduction: false,
-        issuingBanks: ['AXIS'],
-        // refId: "<refId>",
-        clientId: ['OneTicket'],
-      };
-
-      // {
-      //               merchantName: "<merchantName>", // String
-      //               merchantKey: "<merchantKey>" // String,
-      //               phone: "<phone>", // String
-      //               email: "<email>", // String
-      //               refId: "<refId>", // String
-      //               pluginTypes: ["<pluginType>"], // Array<String>
-      //               clientId: ["clientId"], // String
-      //               issuingBanks: ["<issuingBanks>"], // Array<String>
-      //               excludedBanksIINs: ["<excludedBanksIIN>"], // Array<String>
-      //               isProduction: <isProduction> // String
-
-      console.log('config', config);
-      console.log('Initializing Bolt SDK...');
-      PayUUPIBoltUiSdk.initSDK(config);
-
-      const paymentParams = {
-        txnId: backendParams.txnid,
-        amount: String(backendParams.amount),
-        firstName: backendParams.firstname,
-        productInfo: backendParams.productinfo,
-        surl: backendParams.surl,
-        furl: backendParams.furl,
-        ios_surl: backendParams.surl,
-        ios_furl: backendParams.furl,
-        udf1: '',
-        udf2: '',
-        udf3: '',
-        udf4: '',
-        udf5: '',
-      };
-
-      console.log('paymentParams', paymentParams);
-      console.log('Register And Pay');
-      PayUUPIBoltUiSdk.payURegisterAndPay(paymentParams);
-    } catch (error: any) {
-      console.error('Payment Error:', error?.response?.data || error.message);
-      Alert.alert('Error', 'Failed to initiate payment');
-      setLoading(false);
+    if (!boltAvailable) {
+      await handleInit();
     }
+
+    setLoading(true);
+
+    const paymentParams = {
+      amount: '1.00',
+      productInfo: 'Bolt Product',
+      firstName: 'TestUser',
+      surl: 'https://cbjs.payu.in/sdk/success',
+      furl: 'https://cbjs.payu.in/sdk/failure',
+      ios_surl: 'https://cbjs.payu.in/sdk/success',
+      ios_furl: 'https://cbjs.payu.in/sdk/failure',
+      initiationMode: '00',
+      purpose: '00',
+      txnId: `txn_${Date.now()}`,
+      isCCTxnEnabled: false,
+    };
+
+    console.log('Starting Register and Pay:', paymentParams);
+
+    PayUUPIBoltUiSdk.payURegisterAndPay(paymentParams);
+  };
+
+  const handleManageUPI = () => {
+    const screenType = 'MANAGEUPIACCOUNTS';
+    PayUUPIBoltUiSdk.openUPIManagement(screenType);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.header}>PayU Bolt UI</Text>
-        <Text style={styles.subHeader}>Test Mode</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.header}>PayU Bolt UAT</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.info}>
+            Status: {boltAvailable ? 'SDK Available' : 'Not Initialized'}
+          </Text>
+        </View>
+
+        <TouchableOpacity style={styles.btn} onPress={handleInit}>
+          <Text style={styles.btnText}>1. Initialize SDK</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.btn}
-          onPress={handlePayNow}
+          onPress={handleRegisterAndPay}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.btnText}>PAY NOW ₹1.00</Text>
+            <Text style={styles.btnText}>2. Register & Pay</Text>
           )}
         </TouchableOpacity>
-      </View>
+
+        <TouchableOpacity
+          style={[styles.btn, styles.secondaryBtn]}
+          onPress={handleManageUPI}
+        >
+          <Text style={styles.secondaryBtnText}>Manage UPI</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
   content: { alignItems: 'center', padding: 20 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
-  subHeader: { fontSize: 16, color: 'gray', marginBottom: 30 },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  card: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 8,
+    width: '100%',
+    marginBottom: 20,
+  },
+  info: { fontSize: 14, color: '#555' },
   btn: {
-    backgroundColor: '#00B9A5',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
+    backgroundColor: '#4a148c',
+    padding: 15,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
+    marginBottom: 15,
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  secondaryBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#4a148c',
+  },
+  secondaryBtnText: { color: '#4a148c' },
 });
 
 export default App;

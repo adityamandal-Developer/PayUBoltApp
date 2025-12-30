@@ -12,10 +12,10 @@
   "dependencies": {
     "@react-native/new-app-screen": "0.83.1",
     "axios": "^1.13.2",
-    "payu-upi-bolt-ui-rn": "^0.0.4",
+    "payu-upi-bolt-ui-rn": "^0.0.1-alpha4",
     "react": "19.2.0",
     "react-native": "0.83.1",
-    "react-native-safe-area-context": "^5.5.2"
+    "react-native-safe-area-context": "^5.6.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
